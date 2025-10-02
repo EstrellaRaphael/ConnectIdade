@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
 
 interface ButtonProps {
     children: React.ReactNode;
@@ -7,7 +7,7 @@ interface ButtonProps {
     variant?: 'default' | 'outline' | 'ghost' | 'destructive';
     size?: 'default' | 'sm' | 'lg' | 'icon';
     disabled?: boolean;
-    style?: ViewStyle;
+    style?: StyleProp<ViewStyle>;
     className?: string;
 }
 

@@ -1,9 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle, StyleProp, TextStyle } from 'react-native';
 
 interface CardProps {
     children: React.ReactNode;
-    style?: ViewStyle;
+    style?: StyleProp<ViewStyle>;
+}
+
+interface CardTitleProps {
+    children: React.ReactNode;
+    style?: StyleProp<TextStyle>;
 }
 
 export const Card: React.FC<CardProps> = ({ children, style }) => (
@@ -14,7 +19,7 @@ export const CardHeader: React.FC<CardProps> = ({ children }) => (
     <View style={styles.header}>{children}</View>
 );
 
-export const CardTitle: React.FC<CardProps> = ({ children, style }) => (
+export const CardTitle: React.FC<CardTitleProps> = ({ children, style }) => (
     <Text style={[styles.title, style]}>{children}</Text>
 );
 
