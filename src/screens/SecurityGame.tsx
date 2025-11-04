@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { ArrowLeft, Check, X } from 'lucide-react-native';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Progress } from '../components/ui/Progress';
-import { ScreenProps } from '../types';
+import { ScreenProps, LicaoDto } from '../types';
+import api from '../services/api';
 
 interface Question {
     message: string;
@@ -46,6 +47,34 @@ export default function SecurityGame({ state, navigateTo, completeModule, addMed
     const [answered, setAnswered] = useState(false);
     const [showResult, setShowResult] = useState(false);
 
+    const [simuladorLicaoId, setSimuladorLicaoId] = useState<number | null>(null);
+
+    useEffect(() => {
+        const fetchLessonData = async () => {
+            try {
+                const modulosRes = await api.get('/api/modulos');
+                const moduloSec = modulosRes.data.find(
+                    (m: any) => m.titulo === 'Segurança Digital'
+                );
+
+                if (!moduloSec) throw new Error('Módulo "Segurança Digital" não encontrado');
+
+                const licoesRes = await api.get(`/api/modulos/${moduloSec.id}/licoes`);
+                const licoes: LicaoDto[] = licoesRes.data;
+
+                const simLicao = licoes.find(l => l.tipo === 'SIMULADOR');
+                if (simLicao) setSimuladorLicaoId(simLicao.id);
+
+            } catch (err) {
+                console.error(err);
+                Alert.alert("Erro", "Não foi possível carregar os dados desta lição.");
+                navigateTo('menu', {});
+            }
+        };
+
+        fetchLessonData();
+    }, []);
+
     const question = QUESTIONS[currentQuestion];
 
     const handleAnswer = (isSuspicious: boolean) => {
@@ -65,9 +94,11 @@ export default function SecurityGame({ state, navigateTo, completeModule, addMed
             setAnswered(false);
         } else {
             setShowResult(true);
-            completeModule('security');
-            if (score >= 3) {
-                addMedal('Guardião Digital', 10 + score);
+            if (simuladorLicaoId) {
+                completeModule(simuladorLicaoId);
+                if (score >= 3) {
+                    addMedal('Guardião Digital', 10 + score);
+                }
             }
         }
     };
@@ -125,7 +156,7 @@ export default function SecurityGame({ state, navigateTo, completeModule, addMed
                                 </Button>
                                 <Button
                                     variant="outline"
-                                    onPress={() => navigateTo('security-menu')}
+                                    onPress={() => navigateTo('security-menu', {})}
                                     style={styles.resultButton}
                                 >
                                     <Text style={styles.resultButtonTextOutline}>Voltar ao Menu</Text>
@@ -143,7 +174,7 @@ export default function SecurityGame({ state, navigateTo, completeModule, addMed
             <ScrollView style={styles.content}>
                 <Button
                     variant="ghost"
-                    onPress={() => navigateTo('security-menu')}
+                    onPress={() => navigateTo('security-menu', {})}
                     style={styles.backButton}
                 >
                     <View style={styles.backButtonContent}>

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { ArrowLeft, Zap, Timer, Grid, RotateCcw, Image as ImageIcon, Camera as CameraIcon } from 'lucide-react-native';
 import { Button } from '../components/ui/Button';
-import { ScreenProps } from '../types';
+import { ScreenProps, LicaoDto } from '../types';
+import api from '../services/api';
 
 export default function CameraSimulation({ state, navigateTo, completeModule, addMedal, showToast }: ScreenProps) {
     const [step, setStep] = useState(1);
@@ -14,7 +15,38 @@ export default function CameraSimulation({ state, navigateTo, completeModule, ad
     const [grid, setGrid] = useState(false);
     const [timer, setTimer] = useState<'off' | '3s' | '10s'>('off');
     const [recording, setRecording] = useState(false);
-    const [showQuiz, setShowQuiz] = useState(false);
+
+    const [simuladorLicaoId, setSimuladorLicaoId] = useState<number | null>(null);
+    const [quizLicaoId, setQuizLicaoId] = useState<number | null>(null);
+
+    useEffect(() => {
+        const fetchLessonData = async () => {
+            try {
+                const modulosRes = await api.get('/api/modulos');
+                const moduloCam = modulosRes.data.find(
+                    (m: any) => m.titulo === 'Câmera e Fotos'
+                );
+
+                if (!moduloCam) throw new Error('Módulo "Câmera e Fotos" não encontrado');
+
+                const licoesRes = await api.get(`/api/modulos/${moduloCam.id}/licoes`);
+                const licoes: LicaoDto[] = licoesRes.data;
+
+                const simLicao = licoes.find(l => l.tipo === 'SIMULADOR');
+                const quizLicao = licoes.find(l => l.tipo === 'QUIZ');
+
+                if (simLicao) setSimuladorLicaoId(simLicao.id);
+                if (quizLicao) setQuizLicaoId(quizLicao.id);
+
+            } catch (err) {
+                console.error(err);
+                Alert.alert("Erro", "Não foi possível carregar os dados desta lição.");
+                navigateTo('menu', {});
+            }
+        };
+
+        fetchLessonData();
+    }, []);
 
     const handleAction = (action: string) => {
         switch (action) {
@@ -30,8 +62,21 @@ export default function CameraSimulation({ state, navigateTo, completeModule, ad
                         setRecording(false);
                         setVideos(videos + 1);
                         showToast('Vídeo gravado! 🎥', 'success');
-                        completeModule('camera');
-                        setTimeout(() => setShowQuiz(true), 1000);
+                        
+                        if (simuladorLicaoId) {
+                            completeModule(simuladorLicaoId);
+                            addMedal('Fotógrafo Expert', 10);
+                        }
+
+                        setTimeout(() => {
+                            if (quizLicaoId) {
+                                navigateTo('quiz', { licaoId: quizLicaoId, moduleId: 'camera' });
+                            } else {
+                                showToast("Quiz não encontrado.", "error");
+                                navigateTo('camera-menu', {});
+                            }
+                        }, 1000);
+
                     }, 3000);
                 }
                 break;
@@ -79,72 +124,15 @@ export default function CameraSimulation({ state, navigateTo, completeModule, ad
         }
     };
 
-    const handleQuizAnswer = (correct: boolean) => {
-        if (correct) {
-            showToast('Resposta correta! 🎉', 'success');
-            addMedal('Fotógrafo Expert', 10);
-            setTimeout(() => navigateTo('camera-menu'), 2000);
-        } else {
-            showToast('Resposta incorreta. Tente novamente!', 'error');
-        }
-    };
-
-    if (showQuiz) {
-        return (
-            <View style={styles.container}>
-                <View style={styles.quizContainer}>
-                    <Text style={[styles.quizTitle, state.largeText && styles.quizTitleLarge]}>
-                        Quiz de Câmera
-                    </Text>
-                    <Text style={[styles.question, state.largeText && styles.questionLarge]}>
-                        Qual ícone você deve pressionar para alternar entre câmera frontal e traseira?
-                    </Text>
-
-                    <View style={styles.options}>
-                        <Button
-                            variant="outline"
-                            onPress={() => handleQuizAnswer(false)}
-                            style={styles.option}
-                        >
-                            <Text style={styles.optionText}>A) Flash ⚡</Text>
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onPress={() => handleQuizAnswer(true)}
-                            style={styles.option}
-                        >
-                            <Text style={styles.optionText}>B) Rotação/Troca 🔄</Text>
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onPress={() => handleQuizAnswer(false)}
-                            style={styles.option}
-                        >
-                            <Text style={styles.optionText}>C) Timer ⏱️</Text>
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onPress={() => handleQuizAnswer(false)}
-                            style={styles.option}
-                        >
-                            <Text style={styles.optionText}>D) Grade 📐</Text>
-                        </Button>
-                    </View>
-                </View>
-            </View>
-        );
-    }
-
     return (
         <View style={styles.container}>
-            {/* Header */}
             <View style={[
                 styles.header,
                 state.highContrast && styles.headerHighContrast,
             ]}>
                 <Button
                     variant="ghost"
-                    onPress={() => navigateTo('camera-menu')}
+                    onPress={() => navigateTo('camera-menu', {})}
                     style={styles.backButton}
                 >
                     <ArrowLeft size={24} color={state.highContrast ? '#000' : '#ffffff'} />
@@ -505,42 +493,5 @@ const styles = StyleSheet.create({
     },
     actionHighlight: {
         backgroundColor: '#fef3c7',
-    },
-    // Quiz Styles
-    quizContainer: {
-        flex: 1,
-        padding: 24,
-        justifyContent: 'center',
-        backgroundColor: '#dbeafe',
-    },
-    quizTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#111827',
-        marginBottom: 24,
-        textAlign: 'center',
-    },
-    quizTitleLarge: {
-        fontSize: 28,
-    },
-    question: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#111827',
-        marginBottom: 24,
-    },
-    questionLarge: {
-        fontSize: 20,
-    },
-    options: {
-        gap: 12,
-    },
-    option: {
-        paddingVertical: 16,
-    },
-    optionText: {
-        fontSize: 16,
-        color: '#374151',
-        textAlign: 'left',
     },
 });

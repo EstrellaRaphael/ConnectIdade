@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+    View, Text, StyleSheet, FlatList, KeyboardAvoidingView,
+    Platform, Alert
+} from 'react-native';
 import { ArrowLeft, Camera, Paperclip, Smile, Mic, Send } from 'lucide-react-native';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ScreenProps } from '../types';
+import { ScreenProps, LicaoDto } from '../types';
+import api from '../services/api';
 
 interface Message {
     sender: 'me' | 'other';
@@ -18,7 +22,38 @@ export default function MessagesSimulation({ state, navigateTo, completeModule, 
         { sender: 'other', text: 'Vamos praticar usar o WhatsApp!', time: '10:31' },
     ]);
     const [inputText, setInputText] = useState('');
-    const [showQuiz, setShowQuiz] = useState(false);
+    
+    const [simuladorLicaoId, setSimuladorLicaoId] = useState<number | null>(null);
+    const [quizLicaoId, setQuizLicaoId] = useState<number | null>(null);
+
+    useEffect(() => {
+        const fetchLessonData = async () => {
+            try {
+                const modulosRes = await api.get('/api/modulos');
+                const moduloMsg = modulosRes.data.find(
+                    (m: any) => m.titulo === 'Mensagens/WhatsApp'
+                );
+
+                if (!moduloMsg) throw new Error('Módulo "Mensagens/WhatsApp" não encontrado');
+
+                const licoesRes = await api.get(`/api/modulos/${moduloMsg.id}/licoes`);
+                const licoes: LicaoDto[] = licoesRes.data;
+
+                const simLicao = licoes.find(l => l.tipo === 'SIMULADOR');
+                const quizLicao = licoes.find(l => l.tipo === 'QUIZ');
+
+                if (simLicao) setSimuladorLicaoId(simLicao.id);
+                if (quizLicao) setQuizLicaoId(quizLicao.id);
+
+            } catch (err) {
+                console.error(err);
+                Alert.alert("Erro", "Não foi possível carregar os dados desta lição.");
+                navigateTo('menu', {});
+            }
+        };
+
+        fetchLessonData();
+    }, []);
 
     const addMessage = (text: string, sender: 'me' | 'other' = 'me') => {
         setMessages(prev => [...prev, { sender, text, time: '10:32' }]);
@@ -54,68 +89,26 @@ export default function MessagesSimulation({ state, navigateTo, completeModule, 
                 addMessage('📎 Arquivo anexado');
                 setTimeout(() => {
                     addMessage('Excelente! Você completou todas as etapas! 🎉', 'other');
-                    completeModule('messages');
-                    setTimeout(() => setShowQuiz(true), 2000);
+                    
+                    if (simuladorLicaoId) {
+                        completeModule(simuladorLicaoId);
+                        addMedal('Mestre das Mensagens', 10);
+                    }
+
+                    setTimeout(() => {
+                        if (quizLicaoId) {
+                            navigateTo('quiz', { licaoId: quizLicaoId, moduleId: 'messages' });
+                        } else {
+                            showToast("Quiz não encontrado.", "error");
+                            navigateTo('messages-menu', {});
+                        }
+                    }, 2000);
+
                 }, 1000);
                 break;
         }
     };
 
-    const handleQuizAnswer = (correct: boolean) => {
-        if (correct) {
-            showToast('Resposta correta! 🎉', 'success');
-            addMedal('Mestre das Mensagens', 10);
-            setTimeout(() => navigateTo('messages-menu'), 2000);
-        } else {
-            showToast('Resposta incorreta. Tente novamente!', 'error');
-        }
-    };
-
-    if (showQuiz) {
-        return (
-            <View style={styles.container}>
-                <View style={styles.quizContainer}>
-                    <Text style={[styles.quizTitle, state.largeText && styles.quizTitleLarge]}>
-                        Quiz de Mensagens
-                    </Text>
-                    <Text style={[styles.question, state.largeText && styles.questionLarge]}>
-                        Qual ícone você deve pressionar para enviar um áudio no WhatsApp?
-                    </Text>
-
-                    <View style={styles.options}>
-                        <Button
-                            variant="outline"
-                            onPress={() => handleQuizAnswer(false)}
-                            style={styles.option}
-                        >
-                            <Text style={styles.optionText}>A) Câmera 📷</Text>
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onPress={() => handleQuizAnswer(true)}
-                            style={styles.option}
-                        >
-                            <Text style={styles.optionText}>B) Microfone 🎤</Text>
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onPress={() => handleQuizAnswer(false)}
-                            style={styles.option}
-                        >
-                            <Text style={styles.optionText}>C) Clipe de papel 📎</Text>
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onPress={() => handleQuizAnswer(false)}
-                            style={styles.option}
-                        >
-                            <Text style={styles.optionText}>D) Emoji 😊</Text>
-                        </Button>
-                    </View>
-                </View>
-            </View>
-        );
-    }
 
     const renderMessage = ({ item }: { item: Message }) => (
         <View style={[
@@ -160,7 +153,7 @@ export default function MessagesSimulation({ state, navigateTo, completeModule, 
                 <View style={styles.headerContent}>
                     <Button
                         variant="ghost"
-                        onPress={() => navigateTo('messages-menu')}
+                        onPress={() => navigateTo('messages-menu', {})}
                         style={styles.backButton}
                     >
                         <ArrowLeft size={24} color={state.highContrast ? '#000' : '#ffffff'} />
@@ -431,41 +424,5 @@ const styles = StyleSheet.create({
     },
     actionHighlight: {
         backgroundColor: '#fef3c7',
-    },
-    // Quiz Styles
-    quizContainer: {
-        flex: 1,
-        padding: 24,
-        justifyContent: 'center',
-    },
-    quizTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#111827',
-        marginBottom: 24,
-        textAlign: 'center',
-    },
-    quizTitleLarge: {
-        fontSize: 28,
-    },
-    question: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#111827',
-        marginBottom: 24,
-    },
-    questionLarge: {
-        fontSize: 20,
-    },
-    options: {
-        gap: 12,
-    },
-    option: {
-        paddingVertical: 16,
-    },
-    optionText: {
-        fontSize: 16,
-        color: '#374151',
-        textAlign: 'left',
     },
 });

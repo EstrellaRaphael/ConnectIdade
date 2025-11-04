@@ -1,25 +1,69 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+    View, Text, StyleSheet, ScrollView, TouchableOpacity,
+    ActivityIndicator, Alert
+} from 'react-native';
 import { ArrowLeft, Play, Award, Video, Check } from 'lucide-react-native';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { ScreenProps } from '../types';
+import { ScreenProps, LicaoDto } from '../types';
 import { MODULES } from '../config/modules';
+import api from '../services/api';
 
 interface ModuleMenuProps extends ScreenProps {
     moduleId: string;
 }
 
 export default function ModuleMenu({ state, navigateTo, moduleId }: ModuleMenuProps) {
-    const module = MODULES.find(m => m.id === moduleId);
-    if (!module) return null;
+    const [licoes, setLicoes] = useState<LicaoDto[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const Icon = module.Icon;
-    const isCompleted = state.userProgress.completedModules.includes(moduleId);
+    const moduleInfo = MODULES.find(m => m.id === moduleId);
+
+    useEffect(() => {
+        const fetchModuleData = async () => {
+            if (!moduleInfo) {
+                setIsLoading(false);
+                Alert.alert('Erro', 'Módulo não encontrado.');
+                return;
+            }
+
+            try {
+                const modulosResponse = await api.get('/api/modulos');
+                const backendModule = modulosResponse.data.find(
+                    (m: any) => m.titulo === moduleInfo.name
+                );
+
+                if (!backendModule) {
+                    throw new Error('Módulo não encontrado no backend');
+                }
+
+                const licoesResponse = await api.get(`/api/modulos/${backendModule.id}/licoes`);
+                setLicoes(licoesResponse.data);
+
+            } catch (err) {
+                console.error(err);
+                Alert.alert('Erro de Conexão', 'Não foi possível carregar as atividades.');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchModuleData();
+    }, [moduleId, moduleInfo]);
+
+    const simuladorLicao = licoes.find(l => l.tipo === 'SIMULADOR');
+
+    const isCompleted = state.progresso?.licoesCompletasIds.includes(simuladorLicao?.id || -1) || false;
+
+    if (!moduleInfo) {
+        return null;
+    }
+
+    const Icon = moduleInfo.Icon;
 
     return (
         <View style={styles.container}>
-            {/* Header */}
             <View style={[
                 styles.header,
                 state.highContrast && styles.headerHighContrast,
@@ -35,14 +79,15 @@ export default function ModuleMenu({ state, navigateTo, moduleId }: ModuleMenuPr
                 <View style={styles.headerContent}>
                     <Icon
                         size={state.largeText ? 80 : 64}
-                        color={state.highContrast ? '#000' : module.color}
+                        color={state.highContrast ? '#000' : moduleInfo.color}
                     />
                     <Text style={[
                         styles.headerTitle,
                         state.largeText && styles.headerTitleLarge,
                     ]}>
-                        {module.name}
+                        {moduleInfo.name}
                     </Text>
+                    
                     {isCompleted && (
                         <View style={styles.completed}>
                             <Check size={20} color="#16a34a" />
@@ -53,115 +98,123 @@ export default function ModuleMenu({ state, navigateTo, moduleId }: ModuleMenuPr
             </View>
 
             <ScrollView style={styles.content}>
-                {/* Simulador */}
-                <TouchableOpacity onPress={() => navigateTo(moduleId)}>
-                    <Card style={[
-                        styles.card,
-                        state.highContrast ? styles.cardHighContrast : styles.cardBlue,
-                    ]}>
-                        <CardContent style={styles.cardContent}>
-                            <Play
-                                size={state.largeText ? 48 : 40}
-                                color={state.highContrast ? '#000' : '#2563eb'}
-                            />
-                            <View style={styles.cardText}>
-                                <Text style={[
-                                    styles.cardTitle,
-                                    state.largeText && styles.cardTitleLarge,
-                                ]}>
-                                    Simulador
-                                </Text>
-                                <Text style={[
-                                    styles.cardDescription,
-                                    state.largeText && styles.cardDescriptionLarge,
-                                ]}>
-                                    Pratique em ambiente seguro
-                                </Text>
-                            </View>
-                        </CardContent>
-                    </Card>
-                </TouchableOpacity>
+                {isLoading ? (
+                    <View style={styles.loaderContainer}>
+                        <ActivityIndicator size="large" color="#2563eb" />
+                        <Text style={styles.loaderText}>Carregando atividades...</Text>
+                    </View>
+                ) : (
+                    <>
+                        {/* Simulador */}
+                        <TouchableOpacity onPress={() => navigateTo(moduleId)}>
+                            <Card style={[
+                                styles.card,
+                                state.highContrast ? styles.cardHighContrast : styles.cardBlue,
+                            ]}>
+                                <CardContent style={styles.cardContent}>
+                                    <Play
+                                        size={state.largeText ? 48 : 40}
+                                        color={state.highContrast ? '#000' : '#2563eb'}
+                                    />
+                                    <View style={styles.cardText}>
+                                        <Text style={[
+                                            styles.cardTitle,
+                                            state.largeText && styles.cardTitleLarge,
+                                        ]}>
+                                            Simulador
+                                        </Text>
+                                        <Text style={[
+                                            styles.cardDescription,
+                                            state.largeText && styles.cardDescriptionLarge,
+                                        ]}>
+                                            Pratique em ambiente seguro
+                                        </Text>
+                                    </View>
+                                </CardContent>
+                            </Card>
+                        </TouchableOpacity>
 
-                {/* Quiz */}
-                <TouchableOpacity
-                    onPress={() => isCompleted && navigateTo(`quiz-${moduleId}`)}
-                    disabled={!isCompleted}
-                >
-                    <Card style={[
-                        styles.card,
-                        state.highContrast ? styles.cardHighContrast : styles.cardYellow,
-                        !isCompleted && styles.cardDisabled,
-                    ]}>
-                        <CardContent style={styles.cardContent}>
-                            <Award
-                                size={state.largeText ? 48 : 40}
-                                color={state.highContrast ? '#000' : '#eab308'}
-                                opacity={!isCompleted ? 0.5 : 1}
-                            />
-                            <View style={styles.cardText}>
-                                <Text style={[
-                                    styles.cardTitle,
-                                    state.largeText && styles.cardTitleLarge,
-                                    !isCompleted && styles.textDisabled,
-                                ]}>
-                                    Quiz
-                                </Text>
-                                <Text style={[
-                                    styles.cardDescription,
-                                    state.largeText && styles.cardDescriptionLarge,
-                                    !isCompleted && styles.textDisabled,
-                                ]}>
-                                    {isCompleted ? 'Teste seus conhecimentos' : '🔒 Complete o simulador primeiro'}
-                                </Text>
-                            </View>
-                        </CardContent>
-                    </Card>
-                </TouchableOpacity>
+                        {/* Quiz */}
+                        <TouchableOpacity
+                            onPress={() => isCompleted && navigateTo(`quiz-${moduleId}`)}
+                            disabled={!isCompleted}
+                        >
+                            <Card style={[
+                                styles.card,
+                                state.highContrast ? styles.cardHighContrast : styles.cardYellow,
+                                !isCompleted && styles.cardDisabled, 
+                            ]}>
+                                <CardContent style={styles.cardContent}>
+                                    <Award
+                                        size={state.largeText ? 48 : 40}
+                                        color={state.highContrast ? '#000' : '#eab308'}
+                                        opacity={!isCompleted ? 0.5 : 1}
+                                    />
+                                    <View style={styles.cardText}>
+                                        <Text style={[
+                                            styles.cardTitle,
+                                            state.largeText && styles.cardTitleLarge,
+                                            !isCompleted && styles.textDisabled,
+                                        ]}>
+                                            Quiz
+                                        </Text>
+                                        <Text style={[
+                                            styles.cardDescription,
+                                            state.largeText && styles.cardDescriptionLarge,
+                                            !isCompleted && styles.textDisabled,
+                                        ]}>
+                                            {isCompleted ? 'Teste seus conhecimentos' : '🔒 Complete o simulador primeiro'}
+                                        </Text>
+                                    </View>
+                                </CardContent>
+                            </Card>
+                        </TouchableOpacity>
 
-                {/* Vídeo Explicativo */}
-                <TouchableOpacity onPress={() => navigateTo(`video-${moduleId}`)}>
-                    <Card style={[
-                        styles.card,
-                        state.highContrast ? styles.cardHighContrast : styles.cardPurple,
-                    ]}>
-                        <CardContent style={styles.cardContent}>
-                            <Video
-                                size={state.largeText ? 48 : 40}
-                                color={state.highContrast ? '#000' : '#7c3aed'}
-                            />
-                            <View style={styles.cardText}>
-                                <Text style={[
-                                    styles.cardTitle,
-                                    state.largeText && styles.cardTitleLarge,
-                                ]}>
-                                    Vídeo Explicativo
-                                </Text>
-                                <Text style={[
-                                    styles.cardDescription,
-                                    state.largeText && styles.cardDescriptionLarge,
-                                ]}>
-                                    Aprenda assistindo
-                                </Text>
-                            </View>
-                        </CardContent>
-                    </Card>
-                </TouchableOpacity>
+                        {/* Vídeo Explicativo */}
+                        <TouchableOpacity onPress={() => navigateTo(`video-${moduleId}`)}>
+                            <Card style={[
+                                styles.card,
+                                state.highContrast ? styles.cardHighContrast : styles.cardPurple,
+                            ]}>
+                                <CardContent style={styles.cardContent}>
+                                    <Video
+                                        size={state.largeText ? 48 : 40}
+                                        color={state.highContrast ? '#000' : '#7c3aed'}
+                                    />
+                                    <View style={styles.cardText}>
+                                        <Text style={[
+                                            styles.cardTitle,
+                                            state.largeText && styles.cardTitleLarge,
+                                        ]}>
+                                            Vídeo Explicativo
+                                        </Text>
+                                        <Text style={[
+                                            styles.cardDescription,
+                                            state.largeText && styles.cardDescriptionLarge,
+                                        ]}>
+                                            Aprenda assistindo
+                                        </Text>
+                                    </View>
+                                </CardContent>
+                            </Card>
+                        </TouchableOpacity>
 
-                {/* Dica */}
-                <Card style={[
-                    styles.tipCard,
-                    state.highContrast && styles.cardHighContrast,
-                ]}>
-                    <CardContent style={styles.tipContent}>
-                        <Text style={[
-                            styles.tipText,
-                            state.largeText && styles.tipTextLarge,
+                        {/* Dica*/}
+                        <Card style={[
+                            styles.tipCard,
+                            state.highContrast && styles.cardHighContrast,
                         ]}>
-                            💡 <Text style={styles.tipBold}>Dica:</Text> Recomendamos fazer nesta ordem: Vídeo → Simulador → Quiz
-                        </Text>
-                    </CardContent>
-                </Card>
-
+                            <CardContent style={styles.tipContent}>
+                                <Text style={[
+                                    styles.tipText,
+                                    state.largeText && styles.tipTextLarge,
+                                ]}>
+                                    💡 <Text style={styles.tipBold}>Dica:</Text> Recomendamos fazer nesta ordem: Vídeo → Simulador → Quiz
+                                </Text>
+                            </CardContent>
+                        </Card>
+                    </>
+                )}
                 <View style={{ height: 40 }} />
             </ScrollView>
         </View>
@@ -169,6 +222,17 @@ export default function ModuleMenu({ state, navigateTo, moduleId }: ModuleMenuPr
 }
 
 const styles = StyleSheet.create({
+    loaderContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 80,
+    },
+    loaderText: {
+        marginTop: 16,
+        fontSize: 18,
+        color: '#374151',
+    },
     container: {
         flex: 1,
         backgroundColor: '#dbeafe',

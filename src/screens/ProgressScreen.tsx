@@ -6,10 +6,23 @@ import { Button } from '../components/ui/Button';
 import { Progress } from '../components/ui/Progress';
 import { ScreenProps } from '../types';
 
+const TOTAL_MODULOS = 4;
+
 export default function ProgressScreen({ state, navigateTo }: ScreenProps) {
-    const totalModules = 4;
-    const completedCount = state.userProgress.completedModules.length;
-    const percentage = (completedCount / totalModules) * 100;
+
+    const progresso = state.progresso;
+    const usuario = state.usuario;
+
+    if (!progresso || !usuario) {
+        return (
+            <View style={styles.container}>
+                <Text style={styles.noMedals}>Carregando progresso...</Text>
+            </View>
+        );
+    }
+
+    const completedCount = progresso.medalhas.length; 
+    const percentage = (completedCount / TOTAL_MODULOS) * 100;
 
     return (
         <View style={styles.container}>
@@ -32,7 +45,6 @@ export default function ProgressScreen({ state, navigateTo }: ScreenProps) {
                     Meu Progresso
                 </Text>
 
-                {/* Módulos Completados */}
                 <Card style={[styles.card, state.highContrast && styles.cardHighContrast]}>
                     <CardContent style={styles.modulesCard}>
                         <Text style={[
@@ -40,13 +52,13 @@ export default function ProgressScreen({ state, navigateTo }: ScreenProps) {
                             state.largeText && styles.bigNumberLarge,
                             state.highContrast && styles.textHighContrast,
                         ]}>
-                            {completedCount}/{totalModules}
+                            {completedCount}/{TOTAL_MODULOS}
                         </Text>
                         <Text style={[
                             styles.label,
                             state.largeText && styles.labelLarge,
                         ]}>
-                            Módulos Completados
+                            Módulos Principais Concluídos
                         </Text>
                         <Progress value={percentage} style={styles.progress} />
                         <Text style={[
@@ -58,7 +70,6 @@ export default function ProgressScreen({ state, navigateTo }: ScreenProps) {
                     </CardContent>
                 </Card>
 
-                {/* Pontuação Total */}
                 <Card style={[styles.card, state.highContrast && styles.cardHighContrast]}>
                     <CardHeader>
                         <CardTitle>
@@ -73,22 +84,21 @@ export default function ProgressScreen({ state, navigateTo }: ScreenProps) {
                             state.largeText && styles.scoreLarge,
                             state.highContrast && styles.textHighContrast,
                         ]}>
-                            {state.userProgress.currentScore} pontos
+                            {progresso.pontuacaoTotal} pontos
                         </Text>
                     </CardContent>
                 </Card>
 
-                {/* Medalhas */}
                 <Card style={[styles.card, state.highContrast && styles.cardHighContrast]}>
                     <CardHeader>
                         <CardTitle>
-                            <Text style={state.largeText ? styles.cardTitleLargeText : null}>
+                            <Text style={state.largeText ? styles.cardTitleLargeText : undefined}>
                                 Medalhas Conquistadas
                             </Text>
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {state.userProgress.medals.length === 0 ? (
+                        {progresso.medalhas.length === 0 ? (
                             <Text style={[
                                 styles.noMedals,
                                 state.largeText && styles.noMedalsLarge,
@@ -97,9 +107,9 @@ export default function ProgressScreen({ state, navigateTo }: ScreenProps) {
                             </Text>
                         ) : (
                             <View style={styles.medalsContainer}>
-                                {state.userProgress.medals.map((medal, index) => (
+                                {progresso.medalhas.map((usuarioMedalha) => (
                                     <View
-                                        key={index}
+                                        key={usuarioMedalha.id}
                                         style={[
                                             styles.medalItem,
                                             state.highContrast ? styles.medalItemHighContrast : styles.medalItemDefault,
@@ -113,7 +123,7 @@ export default function ProgressScreen({ state, navigateTo }: ScreenProps) {
                                             styles.medalName,
                                             state.largeText && styles.medalNameLarge,
                                         ]}>
-                                            {medal}
+                                            {usuarioMedalha.medalha.nome}
                                         </Text>
                                     </View>
                                 ))}

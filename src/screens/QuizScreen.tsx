@@ -1,40 +1,114 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { ScreenProps } from '../types';
-import { QUIZ_DATA } from '../config/modules';
+import { ScreenProps, QuizDto, PerguntaDto, ResultadoQuizResponseDto } from '../types';
+import api from '../services/api'; 
 
 interface QuizScreenProps extends ScreenProps {
+    licaoId: number;
     moduleId: string;
 }
 
-export default function QuizScreen({ state, navigateTo, moduleId, addPoints, showToast }: QuizScreenProps) {
-    const [answered, setAnswered] = useState(false);
-    const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+export default function QuizScreen({ 
+    state, 
+    navigateTo, 
+    licaoId,
+    moduleId, 
+    completeModule, 
+    showToast 
+}: QuizScreenProps) {
+    
+    const [quiz, setQuiz] = useState<QuizDto | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    
+    const [resultado, setResultado] = useState<ResultadoQuizResponseDto | null>(null);
+    
+    const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(null);
 
-    const quiz = QUIZ_DATA[moduleId];
-    if (!quiz) return null;
+    useEffect(() => {
+        const fetchQuiz = async () => {
+            if (!licaoId) {
+                Alert.alert("Erro", "ID da lição do quiz não encontrado.");
+                return;
+            }
+            
+            setIsLoading(true);
+            setResultado(null);
+            setSelectedOptionIndex(null);
 
-    const handleAnswer = (index: number) => {
-        setSelectedAnswer(index);
-        setAnswered(true);
+            try {
+                const response = await api.get<QuizDto>(`/api/quiz/licao/${licaoId}`);
+                setQuiz(response.data);
+            } catch (err) {
+                console.error(err);
+                Alert.alert("Erro", "Não foi possível carregar o quiz.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-        if (index === quiz.correctAnswer) {
-            showToast('Resposta correta! 🎉 +5 pontos', 'success');
-            addPoints(5);
-        } else {
-            showToast('Resposta incorreta!', 'error');
+        fetchQuiz();
+    }, [licaoId]);
+
+    const handleAnswer = async (perguntaId: number, opcaoId: number, optionIndex: number) => {
+        if (!state.usuario) {
+            showToast("Você não está logado.", "error");
+            return;
+        }
+
+        setSelectedOptionIndex(optionIndex);
+
+        try {
+            const response = await api.post<ResultadoQuizResponseDto>(
+                `/api/quiz/submeter/usuario/${state.usuario.id}`, 
+                {
+                    perguntaId: perguntaId,
+                    opcaoEscolhidaId: opcaoId,
+                }
+            );
+
+            const resultadoResposta = response.data;
+            setResultado(resultadoResposta);
+
+            if (resultadoResposta.isCorreta) {
+                showToast('Resposta correta! 🎉 Pontos ganhos!', 'success');
+                completeModule(licaoId); 
+            } else {
+                showToast('Resposta incorreta!', 'error');
+            }
+
+        } catch (err) {
+            console.error(err);
+            showToast('Erro ao submeter resposta.', 'error');
         }
     };
 
-    const getButtonStyle = (index: number) => {
-        if (!answered) return styles.optionButton;
-        if (index === quiz.correctAnswer) return styles.optionButtonCorrect;
-        if (index === selectedAnswer) return styles.optionButtonWrong;
+    const getButtonStyle = (index: number, pergunta: PerguntaDto) => {
+        if (!resultado) return styles.optionButton;
+        
+        if (resultado.isCorreta && index === selectedOptionIndex) {
+            return styles.optionButtonCorrect;
+        }
+        
+        if (!resultado.isCorreta && index === selectedOptionIndex) {
+            return styles.optionButtonWrong;
+        }
+        
         return styles.optionButton;
     };
+
+    if (isLoading || !quiz || !quiz.perguntas || quiz.perguntas.length === 0) {
+        return (
+            <View style={styles.container}>
+                <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 50 }} />
+            </View>
+        );
+    }
+
+    const perguntaAtual = quiz.perguntas[0];
+    const isAnswered = !!resultado; 
 
     return (
         <View style={styles.container}>
@@ -63,18 +137,18 @@ export default function QuizScreen({ state, navigateTo, moduleId, addPoints, sho
                             styles.question,
                             state.largeText && styles.questionLarge,
                         ]}>
-                            {quiz.question}
+                            {perguntaAtual.texto}
                         </Text>
 
                         <View style={styles.options}>
-                            {quiz.options.map((option: string, index: number) => (
+                            {perguntaAtual.opcoes.map((option, index) => (
                                 <Button
-                                    key={index}
+                                    key={option.id}
                                     variant="outline"
-                                    onPress={() => !answered && handleAnswer(index)}
-                                    disabled={answered}
+                                    onPress={() => !isAnswered && handleAnswer(perguntaAtual.id, option.id, index)}
+                                    disabled={isAnswered}
                                     style={{
-                                        ...getButtonStyle(index),
+                                        ...getButtonStyle(index, perguntaAtual),
                                         ...(state.highContrast ? styles.optionButtonHighContrast : {}),
                                     }}
                                 >
@@ -82,13 +156,13 @@ export default function QuizScreen({ state, navigateTo, moduleId, addPoints, sho
                                         styles.optionText,
                                         state.largeText && styles.optionTextLarge,
                                     ]}>
-                                        {option}
+                                        {option.texto}
                                     </Text>
                                 </Button>
                             ))}
                         </View>
 
-                        {answered && (
+                        {isAnswered && (
                             <>
                                 <Card style={[
                                     styles.explanationCard,
@@ -105,7 +179,7 @@ export default function QuizScreen({ state, navigateTo, moduleId, addPoints, sho
                                             styles.explanationText,
                                             state.largeText && styles.explanationTextLarge,
                                         ]}>
-                                            {quiz.explanation}
+                                            {resultado.explicacaoResposta}
                                         </Text>
                                     </CardContent>
                                 </Card>
@@ -114,8 +188,8 @@ export default function QuizScreen({ state, navigateTo, moduleId, addPoints, sho
                                     <Button
                                         variant="outline"
                                         onPress={() => {
-                                            setAnswered(false);
-                                            setSelectedAnswer(null);
+                                            setResultado(null);
+                                            setSelectedOptionIndex(null);
                                         }}
                                         style={styles.actionButton}
                                     >

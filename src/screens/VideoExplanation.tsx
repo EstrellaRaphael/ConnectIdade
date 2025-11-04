@@ -1,27 +1,76 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { ArrowLeft, Play } from 'lucide-react-native';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { ScreenProps } from '../types';
-import { VIDEO_INFO } from '../config/modules';
+import { ScreenProps, LicaoDto, ModuloDto } from '../types';
+import { MODULES } from '../config/modules';
+import api from '../services/api';
 
 interface VideoExplanationProps extends ScreenProps {
     moduleId: string;
 }
 
 export default function VideoExplanation({ state, navigateTo, moduleId, showToast }: VideoExplanationProps) {
-    const video = VIDEO_INFO[moduleId];
-    if (!video) return null;
+    
+    const [videoLicao, setVideoLicao] = useState<LicaoDto | null>(null);
+    const [modulo, setModulo] = useState<ModuloDto | null>(null);
+    const [simuladorLicao, setSimuladorLicao] = useState<LicaoDto | null>(null);
+    const [quizLicao, setQuizLicao] = useState<LicaoDto | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const isCompleted = state.userProgress.completedModules.includes(moduleId);
+    const moduleInfo = MODULES.find(m => m.id === moduleId);
+
+    useEffect(() => {
+        const fetchVideoData = async () => {
+            if (!moduleInfo) {
+                Alert.alert("Erro", "Módulo não encontrado.");
+                return;
+            }
+
+            try {
+                const modulosRes = await api.get('/api/modulos');
+                const backendModule = modulosRes.data.find(
+                    (m: any) => m.titulo === moduleInfo.name
+                );
+
+                if (!backendModule) throw new Error('Módulo não encontrado no backend');
+                setModulo(backendModule); 
+
+                const licoesRes = await api.get(`/api/modulos/${backendModule.id}/licoes`);
+                const licoes: LicaoDto[] = licoesRes.data;
+
+                setVideoLicao(licoes.find(l => l.tipo === 'VIDEO') || null);
+                setSimuladorLicao(licoes.find(l => l.tipo === 'SIMULADOR') || null);
+                setQuizLicao(licoes.find(l => l.tipo === 'QUIZ') || null);
+
+            } catch (err) {
+                console.error(err);
+                Alert.alert("Erro", "Não foi possível carregar os dados do vídeo.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchVideoData();
+    }, [moduleId, moduleInfo]);
+
+    const isCompleted = state.progresso?.licoesCompletasIds.includes(simuladorLicao?.id || -1) || false;
+
+    if (isLoading || !videoLicao || !modulo) {
+        return (
+            <View style={styles.container}>
+                <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 50 }} />
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
             <ScrollView style={styles.content}>
                 <Button
                     variant="ghost"
-                    onPress={() => navigateTo(`${moduleId}-menu`)}
+                    onPress={() => navigateTo(`${moduleId}-menu`, {})}
                     style={styles.backButton}
                 >
                     <View style={styles.backButtonContent}>
@@ -34,12 +83,13 @@ export default function VideoExplanation({ state, navigateTo, moduleId, showToas
                     <CardHeader>
                         <CardTitle>
                             <Text style={state.largeText && styles.cardTitleLarge}>
-                                {video.title}
+                                {/* Título vindo da API */}
+                                {videoLicao.titulo} 
                             </Text>
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {/* Video Placeholder */}
+                        {/* Video Placeholder (sem alteração) */}
                         <View style={[
                             styles.videoContainer,
                             state.highContrast && styles.videoContainerHighContrast,
@@ -53,7 +103,8 @@ export default function VideoExplanation({ state, navigateTo, moduleId, showToas
                                 styles.duration,
                                 state.highContrast && styles.durationHighContrast,
                             ]}>
-                                <Text style={styles.durationText}>{video.duration}</Text>
+                                {/* Duração mockada, pois não vem da API */}
+                                <Text style={styles.durationText}>5:30</Text>
                             </View>
                         </View>
 
@@ -85,13 +136,14 @@ export default function VideoExplanation({ state, navigateTo, moduleId, showToas
                                     styles.descriptionTitle,
                                     state.largeText && styles.descriptionTitleLarge,
                                 ]}>
-                                    Sobre este vídeo:
+                                    Sobre esta lição:
                                 </Text>
                                 <Text style={[
                                     styles.descriptionText,
                                     state.largeText && styles.descriptionTextLarge,
                                 ]}>
-                                    {video.description}
+                                    {/* Descrição vinda da API (do Módulo) */}
+                                    {modulo.descricao}
                                 </Text>
                             </CardContent>
                         </Card>
@@ -99,15 +151,17 @@ export default function VideoExplanation({ state, navigateTo, moduleId, showToas
                         <View style={styles.buttonsRow}>
                             <Button
                                 variant="outline"
-                                onPress={() => navigateTo(moduleId)}
+                                onPress={() => navigateTo(moduleId, {})}
                                 style={styles.actionButton}
                             >
                                 <Text style={styles.actionButtonText}>Ir para Simulador</Text>
                             </Button>
                             <Button
                                 variant="outline"
-                                onPress={() => navigateTo(`quiz-${moduleId}`)}
-                                disabled={!isCompleted}
+                                onPress={() => 
+                                    isCompleted && quizLicao && navigateTo('quiz', { licaoId: quizLicao.id, moduleId: moduleId })
+                                }
+                                disabled={!isCompleted || !quizLicao}
                                 style={isCompleted ? styles.actionButton : { ...styles.actionButton, ...styles.disabled }}
                             >
                                 <Text style={[

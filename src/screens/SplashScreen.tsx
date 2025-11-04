@@ -1,14 +1,31 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Button } from '../components/ui/Button';
 import { AppState } from '../types';
 
 interface Props {
     state: AppState;
-    navigateTo: (screen: string) => void;
+    navigateTo: (screen: string, params: any) => void;
+    handleLogin: () => Promise<void>; 
 }
 
-export default function SplashScreen({ state, navigateTo }: Props) {
+export default function SplashScreen({ state, navigateTo, handleLogin }: Props) {
+    const [isLoading, setIsLoading] = useState(false);
+
+    const onLoginPress = async () => {
+        setIsLoading(true);
+        try {
+            await handleLogin();
+        } catch (error) {
+            Alert.alert(
+                "Erro no Login",
+                "Não foi possível conectar ao servidor. Tente novamente."
+            );
+            console.error(error);
+        }
+        setIsLoading(false);
+    };
+
     return (
         <View style={[
             styles.container,
@@ -33,19 +50,24 @@ export default function SplashScreen({ state, navigateTo }: Props) {
             </Text>
 
             <Button
-                onPress={() => navigateTo('menu')}
+                onPress={onLoginPress}
+                disabled={isLoading}
                 size={state.largeText ? 'lg' : 'default'}
                 style={[
                     styles.button,
                     state.highContrast && styles.buttonHighContrast,
                 ]}
             >
-                <Text style={[
-                    styles.buttonText,
-                    state.largeText && styles.buttonTextLarge,
-                ]}>
-                    Entrar
-                </Text>
+                {isLoading ? (
+                    <ActivityIndicator color="#ffffff" />
+                ) : (
+                    <Text style={[
+                        styles.buttonText,
+                        state.largeText && styles.buttonTextLarge,
+                    ]}>
+                        Entrar
+                    </Text>
+                )}
             </Button>
         </View>
     );

@@ -1,16 +1,49 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { ArrowLeft, Phone } from 'lucide-react-native';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ScreenProps } from '../types';
+import { ScreenProps, LicaoDto } from '../types';
+import api from '../services/api';
 
 export default function CallsSimulation({ state, navigateTo, completeModule, addMedal, showToast }: ScreenProps) {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [calling, setCalling] = useState(false);
     const [inCall, setInCall] = useState(false);
-    const [showQuiz, setShowQuiz] = useState(false);
+
+    const [simuladorLicaoId, setSimuladorLicaoId] = useState<number | null>(null);
+    const [quizLicaoId, setQuizLicaoId] = useState<number | null>(null);
+
+    useEffect(() => {
+        const fetchLessonData = async () => {
+            try {
+                const modulosRes = await api.get('/api/modulos');
+                const moduloChamadas = modulosRes.data.find(
+                    (m: any) => m.titulo === 'Chamadas'
+                );
+
+                if (!moduloChamadas) throw new Error('Módulo "Chamadas" não encontrado');
+
+                const licoesRes = await api.get(`/api/modulos/${moduloChamadas.id}/licoes`);
+                const licoes: LicaoDto[] = licoesRes.data;
+
+                const simLicao = licoes.find(l => l.tipo === 'SIMULADOR');
+                const quizLicao = licoes.find(l => l.tipo === 'QUIZ');
+
+                if (simLicao) setSimuladorLicaoId(simLicao.id);
+                if (quizLicao) setQuizLicaoId(quizLicao.id);
+
+            } catch (err) {
+                console.error(err);
+                Alert.alert("Erro", "Não foi possível carregar os dados desta lição.");
+                navigateTo('menu');
+            }
+        };
+
+        fetchLessonData();
+    }, []);
+
 
     const makeCall = () => {
         if (!phoneNumber) {
@@ -27,21 +60,20 @@ export default function CallsSimulation({ state, navigateTo, completeModule, add
 
     const endCall = () => {
         setInCall(false);
-        setShowQuiz(true);
-        completeModule('calls');
-    };
-
-    const handleQuizAnswer = (correct: boolean) => {
-        if (correct) {
-            showToast('Resposta correta! 🎉', 'success');
+        
+        if (simuladorLicaoId) {
+            completeModule(simuladorLicaoId);
             addMedal('Primeira Chamada', 10);
-            setTimeout(() => navigateTo('calls-menu'), 2000);
+        }
+        
+        if (quizLicaoId) {
+            navigateTo('quiz', { licaoId: quizLicaoId });
         } else {
-            showToast('Resposta incorreta. Tente novamente!', 'error');
+            showToast("Quiz não encontrado para este módulo.", "error");
+            navigateTo('calls-menu'); // Volta ao menu do módulo
         }
     };
 
-    // Call Screen
     if (calling || inCall) {
         return (
             <View style={[
@@ -95,65 +127,6 @@ export default function CallsSimulation({ state, navigateTo, completeModule, add
         );
     }
 
-    // Quiz Screen
-    if (showQuiz) {
-        return (
-            <View style={styles.container}>
-                <ScrollView style={styles.content}>
-                    <Card style={[styles.card, state.highContrast && styles.cardHighContrast]}>
-                        <CardHeader>
-                            <CardTitle>
-                                <Text style={state.largeText && styles.cardTitleLarge}>
-                                    Quiz de Chamadas
-                                </Text>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <Text style={[
-                                styles.question,
-                                state.largeText && styles.questionLarge,
-                            ]}>
-                                Qual a função do botão vermelho durante uma chamada?
-                            </Text>
-
-                            <View style={styles.options}>
-                                <Button
-                                    variant="outline"
-                                    onPress={() => handleQuizAnswer(false)}
-                                    style={styles.option}
-                                >
-                                    <Text style={styles.optionText}>A) Aumentar o volume</Text>
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onPress={() => handleQuizAnswer(true)}
-                                    style={styles.option}
-                                >
-                                    <Text style={styles.optionText}>B) Encerrar a ligação</Text>
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onPress={() => handleQuizAnswer(false)}
-                                    style={styles.option}
-                                >
-                                    <Text style={styles.optionText}>C) Colocar em espera</Text>
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onPress={() => handleQuizAnswer(false)}
-                                    style={styles.option}
-                                >
-                                    <Text style={styles.optionText}>D) Ativar viva-voz</Text>
-                                </Button>
-                            </View>
-                        </CardContent>
-                    </Card>
-                </ScrollView>
-            </View>
-        );
-    }
-
-    // Main Simulation Screen
     return (
         <View style={styles.container}>
             <ScrollView style={styles.content}>
@@ -316,7 +289,6 @@ const styles = StyleSheet.create({
     tipTextLarge: {
         fontSize: 18,
     },
-    // Call Screen Styles
     callContainer: {
         flex: 1,
         backgroundColor: '#dbeafe',
@@ -396,26 +368,5 @@ const styles = StyleSheet.create({
     },
     endCallTextLarge: {
         fontSize: 20,
-    },
-    // Quiz Styles
-    question: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#111827',
-        marginBottom: 24,
-    },
-    questionLarge: {
-        fontSize: 20,
-    },
-    options: {
-        gap: 12,
-    },
-    option: {
-        paddingVertical: 16,
-    },
-    optionText: {
-        fontSize: 16,
-        color: '#374151',
-        textAlign: 'left',
     },
 });

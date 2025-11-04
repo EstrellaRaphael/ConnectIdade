@@ -1,15 +1,71 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Settings, Check, TrendingUp } from 'lucide-react-native';
+import React, { useState, useEffect } from 'react';
+import {
+    View, Text, StyleSheet, ScrollView, TouchableOpacity,
+    ActivityIndicator, Alert
+} from 'react-native';
+import {
+    Settings, Check, TrendingUp, Phone,
+    MessageSquare, Shield, Camera
+} from 'lucide-react-native';
 import { Card, CardContent } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { ScreenProps } from '../types';
-import { MODULES } from '../config/modules';
+import { ScreenProps, ModuloDto } from '../types';
+import api from '../services/api';
+
+const moduleVisuals: { [key: string]: any } = {
+    'Chamadas': {
+        Icon: Phone,
+        color: '#16a34a',
+        lightColor: '#dcfce7',
+    },
+    'Mensagens/WhatsApp': {
+        Icon: MessageSquare,
+        color: '#2563eb',
+        lightColor: '#dbeafe',
+    },
+    'Segurança Digital': {
+        Icon: Shield,
+        color: '#dc2626',
+        lightColor: '#fee2e2',
+    },
+    'Câmera e Fotos': {
+        Icon: Camera,
+        color: '#7c3aed',
+        lightColor: '#ede9fe',
+    },
+};
+
+const defaultVisual = {
+    Icon: Phone,
+    color: '#6b7280',
+    lightColor: '#f3f4f6',
+};
 
 export default function MainMenu({ state, navigateTo }: ScreenProps) {
+    const [modules, setModules] = useState<ModuloDto[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchModules = async () => {
+            try {
+                const response = await api.get('/api/modulos');
+                setModules(response.data);
+            } catch (err) {
+                console.error(err);
+                Alert.alert(
+                    'Erro de Conexão',
+                    'Não foi possível carregar as lições. Verifique sua conexão e tente novamente.'
+                );
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchModules();
+    }, []); 
+
     return (
         <View style={styles.container}>
-            {/* Header */}
+            {/* Header (sem alterações) */}
             <View style={[
                 styles.header,
                 state.highContrast && styles.headerHighContrast,
@@ -29,7 +85,6 @@ export default function MainMenu({ state, navigateTo }: ScreenProps) {
             </View>
 
             <ScrollView style={styles.content}>
-                {/* Lições Section */}
                 <Text style={[
                     styles.sectionTitle,
                     state.largeText && styles.sectionTitleLarge,
@@ -37,52 +92,150 @@ export default function MainMenu({ state, navigateTo }: ScreenProps) {
                     Lições
                 </Text>
 
-                <View style={styles.grid}>
-                    {MODULES.map((module) => {
-                        const Icon = module.Icon;
-                        const isCompleted = state.userProgress.completedModules.includes(module.id);
+                {/* Seção de Carregamento */}
+                {isLoading ? (
+                    <View style={styles.loaderContainer}>
+                        <ActivityIndicator size="large" color="#2563eb" />
+                        <Text style={styles.loaderText}>Carregando lições...</Text>
+                    </View>
+                ) : (
+                    <View style={styles.grid}>
+                        {modules.map((module) => {
+                            // Busca o ícone e cor correspondente ao título
+                            const visual = moduleVisuals[module.titulo] || defaultVisual;
+                            const Icon = visual.Icon;
 
-                        return (
-                            <TouchableOpacity
-                                key={module.id}
-                                onPress={() => navigateTo(module.screen)}
-                                style={styles.gridItem}
-                            >
-                                <Card style={[
-                                    styles.card,
-                                    state.highContrast ? styles.cardHighContrast : { backgroundColor: module.lightColor },
-                                ]}>
-                                    <CardContent style={styles.cardContent}>
-                                        <Icon
-                                            size={state.largeText ? 64 : 48}
-                                            color={state.highContrast ? '#000' : module.color}
-                                        />
-                                        <Text style={[
-                                            styles.cardTitle,
-                                            state.largeText && styles.cardTitleLarge,
-                                        ]}>
-                                            {module.name}
-                                        </Text>
-                                        {isCompleted && (
-                                            <View style={styles.completed}>
-                                                <Check size={20} color="#16a34a" />
-                                                <Text style={styles.completedText}>Concluído</Text>
-                                            </View>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
+                            return (
+        <View style={styles.container}>
+            {/* Header (sem alterações) */}
+            <View style={[
+                styles.header,
+                state.highContrast && styles.headerHighContrast,
+            ]}>
+                <Text style={[
+                    styles.headerTitle,
+                    state.largeText && styles.headerTitleLarge,
+                ]}>
+                    Menu Principal
+                </Text>
+                <TouchableOpacity onPress={() => navigateTo('settings', {})}>
+                    <Settings
+                        size={state.largeText ? 32 : 24}
+                        color={state.highContrast ? '#000' : '#374151'}
+                    />
+                </TouchableOpacity>
+            </View>
 
-                {/* Divider */}
+            <ScrollView style={styles.content}>
+                <Text style={[
+                    styles.sectionTitle,
+                    state.largeText && styles.sectionTitleLarge,
+                ]}>
+                    Lições
+                </Text>
+
+                {/* Seção de Carregamento */}
+                {isLoading ? (
+                    <View style={styles.loaderContainer}>
+                        <ActivityIndicator size="large" color="#2563eb" />
+                        <Text style={styles.loaderText}>Carregando lições...</Text>
+                    </View>
+                ) : (
+                    /* Grid de Módulos (Renderizado com dados da API) */
+                    <View style={styles.grid}>
+                        {modules.map((module) => { // module = ModuloDto (ex: id: 33, titulo: "Chamadas")
+                            
+                            // 1. Busca o ícone e cor correspondente ao título
+                            const visual = moduleVisuals[module.titulo] || defaultVisual;
+                            const Icon = visual.Icon;
+
+                            // 2. Busca a config local (de 'modules.ts') para achar o nome da ROTA
+                            const moduleConfig = MODULES.find(m => m.name === module.titulo);
+
+                            // Se não achar a config, não renderiza o card (evita crash)
+                            if (!moduleConfig) return null;
+
+                            return (
+                                <TouchableOpacity
+                                    key={module.id}
+                                    
+                                    // *** ESTA É A CORREÇÃO ***
+                                    // Navega para a rota que o App.tsx espera (ex: 'calls-menu')
+                                    // E passa os params {} que a nova função navigateTo exige
+                                    onPress={() => navigateTo(moduleConfig.screen, {})}
+                                    
+                                    style={styles.gridItem}
+                                >
+                                    <Card style={[
+                                        styles.card,
+                                        state.highContrast ? styles.cardHighContrast : { backgroundColor: visual.lightColor },
+                                    ]}>
+                                        <CardContent style={styles.cardContent}>
+                                            <Icon
+                                                size={state.largeText ? 64 : 48}
+                                                color={state.highContrast ? '#000' : visual.color}
+                                            />
+                                            <Text style={[
+                                                styles.cardTitle,
+                                                state.largeText && styles.cardTitleLarge,
+                                            ]}>
+                                                {module.titulo}
+                                            </Text>
+                                        </CardContent>
+                                    </Card>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                )}
+
+                {/* Seção de Acompanhamento (sem alterações) */}
                 <View style={[
                     styles.divider,
                     state.highContrast && styles.dividerHighContrast,
                 ]} />
 
-                {/* Acompanhamento Section */}
+                <Text style={[
+                    styles.sectionTitle,
+                    state.largeText && styles.sectionTitleLarge,
+                ]}>
+                    Acompanhamento
+                </Text>
+
+                <TouchableOpacity onPress={() => navigateTo('progress', {})}>
+                    <Card style={[
+                        styles.card,
+                        state.highContrast ? styles.cardHighContrast : styles.progressCard,
+                    ]}>
+                        <CardContent style={styles.cardContent}>
+                            <TrendingUp
+                                size={state.largeText ? 64 : 48}
+                                color={state.highContrast ? '#000' : '#ec4899'}
+                            />
+                            <Text style={[
+                                styles.cardTitle,
+                                state.largeText && styles.cardTitleLarge,
+                            ]}>
+                                Meu Progresso
+                            </Text>
+                        </CardContent>
+                    </Card>
+                </TouchableOpacity>
+
+                <View style={{ height: 40 }} />
+            </ScrollView>
+        </View>
+    );
+                        })}
+                    </View>
+                )}
+
+                {/* Seção de Acompanhamento (sem alterações) */}
+                <View style={[
+                    styles.divider,
+                    state.highContrast && styles.dividerHighContrast,
+                ]} />
+
                 <Text style={[
                     styles.sectionTitle,
                     state.largeText && styles.sectionTitleLarge,
@@ -117,6 +270,17 @@ export default function MainMenu({ state, navigateTo }: ScreenProps) {
 }
 
 const styles = StyleSheet.create({
+    loaderContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 80,
+    },
+    loaderText: {
+        marginTop: 16,
+        fontSize: 18,
+        color: '#374151',
+    },
     container: {
         flex: 1,
         backgroundColor: '#dbeafe',
