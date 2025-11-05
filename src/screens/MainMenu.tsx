@@ -4,12 +4,13 @@ import {
     ActivityIndicator, Alert
 } from 'react-native';
 import {
-    Settings, Check, TrendingUp, Phone,
+    Settings, TrendingUp, Phone,
     MessageSquare, Shield, Camera
 } from 'lucide-react-native';
 import { Card, CardContent } from '../components/ui/Card';
 import { ScreenProps, ModuloDto } from '../types';
 import api from '../services/api';
+import { MODULES } from '../config/modules';
 
 const moduleVisuals: { [key: string]: any } = {
     'Chamadas': {
@@ -61,53 +62,11 @@ export default function MainMenu({ state, navigateTo }: ScreenProps) {
         };
 
         fetchModules();
-    }, []); 
+    }, []);
 
     return (
         <View style={styles.container}>
-            {/* Header (sem alterações) */}
-            <View style={[
-                styles.header,
-                state.highContrast && styles.headerHighContrast,
-            ]}>
-                <Text style={[
-                    styles.headerTitle,
-                    state.largeText && styles.headerTitleLarge,
-                ]}>
-                    Menu Principal
-                </Text>
-                <TouchableOpacity onPress={() => navigateTo('settings')}>
-                    <Settings
-                        size={state.largeText ? 32 : 24}
-                        color={state.highContrast ? '#000' : '#374151'}
-                    />
-                </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.content}>
-                <Text style={[
-                    styles.sectionTitle,
-                    state.largeText && styles.sectionTitleLarge,
-                ]}>
-                    Lições
-                </Text>
-
-                {/* Seção de Carregamento */}
-                {isLoading ? (
-                    <View style={styles.loaderContainer}>
-                        <ActivityIndicator size="large" color="#2563eb" />
-                        <Text style={styles.loaderText}>Carregando lições...</Text>
-                    </View>
-                ) : (
-                    <View style={styles.grid}>
-                        {modules.map((module) => {
-                            // Busca o ícone e cor correspondente ao título
-                            const visual = moduleVisuals[module.titulo] || defaultVisual;
-                            const Icon = visual.Icon;
-
-                            return (
-        <View style={styles.container}>
-            {/* Header (sem alterações) */}
+            {/* Header */}
             <View style={[
                 styles.header,
                 state.highContrast && styles.headerHighContrast,
@@ -141,29 +100,19 @@ export default function MainMenu({ state, navigateTo }: ScreenProps) {
                         <Text style={styles.loaderText}>Carregando lições...</Text>
                     </View>
                 ) : (
-                    /* Grid de Módulos (Renderizado com dados da API) */
                     <View style={styles.grid}>
-                        {modules.map((module) => { // module = ModuloDto (ex: id: 33, titulo: "Chamadas")
+                        {modules.map((module) => {
                             
-                            // 1. Busca o ícone e cor correspondente ao título
                             const visual = moduleVisuals[module.titulo] || defaultVisual;
                             const Icon = visual.Icon;
 
-                            // 2. Busca a config local (de 'modules.ts') para achar o nome da ROTA
                             const moduleConfig = MODULES.find(m => m.name === module.titulo);
 
-                            // Se não achar a config, não renderiza o card (evita crash)
                             if (!moduleConfig) return null;
-
                             return (
                                 <TouchableOpacity
                                     key={module.id}
-                                    
-                                    // *** ESTA É A CORREÇÃO ***
-                                    // Navega para a rota que o App.tsx espera (ex: 'calls-menu')
-                                    // E passa os params {} que a nova função navigateTo exige
                                     onPress={() => navigateTo(moduleConfig.screen, {})}
-                                    
                                     style={styles.gridItem}
                                 >
                                     <Card style={[
@@ -189,7 +138,7 @@ export default function MainMenu({ state, navigateTo }: ScreenProps) {
                     </View>
                 )}
 
-                {/* Seção de Acompanhamento (sem alterações) */}
+                {/* Seção de Acompanhamento */}
                 <View style={[
                     styles.divider,
                     state.highContrast && styles.dividerHighContrast,
@@ -203,47 +152,6 @@ export default function MainMenu({ state, navigateTo }: ScreenProps) {
                 </Text>
 
                 <TouchableOpacity onPress={() => navigateTo('progress', {})}>
-                    <Card style={[
-                        styles.card,
-                        state.highContrast ? styles.cardHighContrast : styles.progressCard,
-                    ]}>
-                        <CardContent style={styles.cardContent}>
-                            <TrendingUp
-                                size={state.largeText ? 64 : 48}
-                                color={state.highContrast ? '#000' : '#ec4899'}
-                            />
-                            <Text style={[
-                                styles.cardTitle,
-                                state.largeText && styles.cardTitleLarge,
-                            ]}>
-                                Meu Progresso
-                            </Text>
-                        </CardContent>
-                    </Card>
-                </TouchableOpacity>
-
-                <View style={{ height: 40 }} />
-            </ScrollView>
-        </View>
-    );
-                        })}
-                    </View>
-                )}
-
-                {/* Seção de Acompanhamento (sem alterações) */}
-                <View style={[
-                    styles.divider,
-                    state.highContrast && styles.dividerHighContrast,
-                ]} />
-
-                <Text style={[
-                    styles.sectionTitle,
-                    state.largeText && styles.sectionTitleLarge,
-                ]}>
-                    Acompanhamento
-                </Text>
-
-                <TouchableOpacity onPress={() => navigateTo('progress')}>
                     <Card style={[
                         styles.card,
                         state.highContrast ? styles.cardHighContrast : styles.progressCard,
