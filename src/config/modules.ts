@@ -73,13 +73,13 @@ export const QUIZ_DATA: any = {
     messages: {
         question: 'Qual ícone você deve pressionar para enviar um áudio no WhatsApp?',
         options: [
-            'A) Câmera 📷',
-            'B) Microfone 🎤',
-            'C) Clipe de papel 📎',
-            'D) Emoji 😊',
+            'A) Câmera ',
+            'B) Microfone ',
+            'C) Clipe de papel ',
+            'D) Emoji ',
         ],
         correctAnswer: 1,
-        explanation: 'O ícone do microfone (🎤) é usado para gravar e enviar mensagens de áudio. Mantenha pressionado para gravar e solte para enviar.',
+        explanation: 'O ícone do microfone () é usado para gravar e enviar mensagens de áudio. Mantenha pressionado para gravar e solte para enviar.',
     },
     security: {
         question: 'O que você deve fazer quando receber uma mensagem pedindo seus dados bancários?',
@@ -95,12 +95,12 @@ export const QUIZ_DATA: any = {
     camera: {
         question: 'Qual ícone você deve pressionar para alternar entre câmera frontal e traseira?',
         options: [
-            'A) Flash ⚡',
-            'B) Rotação/Troca 🔄',
-            'C) Timer ⏱️',
-            'D) Grade 📐',
+            'A) Flash ',
+            'B) Rotação/Troca ',
+            'C) Timer ',
+            'D) Grade ',
         ],
         correctAnswer: 1,
-        explanation: 'O ícone de rotação/troca (🔄) permite alternar entre a câmera frontal (para selfies) e a câmera traseira (para fotos normais). É muito útil para tirar fotos de si mesmo.',
+        explanation: 'O ícone de rotação/troca () permite alternar entre a câmera frontal (para selfies) e a câmera traseira (para fotos normais). É muito útil para tirar fotos de si mesmo.',
     },
 };

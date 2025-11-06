@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
         color: '#4b5563',
     },
     stepIndicator: {
-        backgroundColor: '#fef3c7',
+        backgroundColor: '#7a7a7aff',
         paddingVertical: 12,
         paddingHorizontal: 16,
     },
