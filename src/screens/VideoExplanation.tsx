@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { ArrowLeft, Play } from 'lucide-react-native';
+import YoutubePlayer from "react-native-youtube-iframe";
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ScreenProps, LicaoDto, ModuloDto } from '../types';
@@ -10,21 +11,38 @@ import api from '../services/api';
 interface VideoExplanationProps extends ScreenProps {
     moduleId: string;
 }
+const MODULE_VIDEOS: Record<string, string> = {
+    'calls': 'https://youtu.be/qEHvmINXUfk',
+    'messages': 'https://youtu.be/L_7F5DABVYQ',
+    'security': 'https://youtu.be/RDrj9R582dM',
+    'camera': 'https://youtu.be/A1sQ2rtZcIg',
+};
+const getYoutubeId = (url: string | undefined) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+};
 
 export default function VideoExplanation({ state, navigateTo, moduleId, showToast }: VideoExplanationProps) {
     
-    const [videoLicao, setVideoLicao] = useState<LicaoDto | null>(null);
     const [modulo, setModulo] = useState<ModuloDto | null>(null);
     const [simuladorLicao, setSimuladorLicao] = useState<LicaoDto | null>(null);
     const [quizLicao, setQuizLicao] = useState<LicaoDto | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    
+    const [playing, setPlaying] = useState(false);
 
     const moduleInfo = MODULES.find(m => m.id === moduleId);
 
+    const currentVideoUrl = MODULE_VIDEOS[moduleId];
+    
+    const videoId = getYoutubeId(currentVideoUrl);
+
     useEffect(() => {
-        const fetchVideoData = async () => {
+        const fetchModuleData = async () => {
             if (!moduleInfo) {
-                Alert.alert("Erro", "Módulo não encontrado.");
+                setIsLoading(false); 
                 return;
             }
 
@@ -34,30 +52,35 @@ export default function VideoExplanation({ state, navigateTo, moduleId, showToas
                     (m: any) => m.titulo === moduleInfo.name
                 );
 
-                if (!backendModule) throw new Error('Módulo não encontrado no backend');
-                setModulo(backendModule); 
+                if (backendModule) {
+                    setModulo(backendModule);
+                    const licoesRes = await api.get(`/api/modulos/${backendModule.id}/licoes`);
+                    const licoes: LicaoDto[] = licoesRes.data;
 
-                const licoesRes = await api.get(`/api/modulos/${backendModule.id}/licoes`);
-                const licoes: LicaoDto[] = licoesRes.data;
-
-                setVideoLicao(licoes.find(l => l.tipo === 'VIDEO') || null);
-                setSimuladorLicao(licoes.find(l => l.tipo === 'SIMULADOR') || null);
-                setQuizLicao(licoes.find(l => l.tipo === 'QUIZ') || null);
+                    setSimuladorLicao(licoes.find(l => l.tipo === 'SIMULADOR') || null);
+                    setQuizLicao(licoes.find(l => l.tipo === 'QUIZ') || null);
+                }
 
             } catch (err) {
                 console.error(err);
-                Alert.alert("Erro", "Não foi possível carregar os dados do vídeo.");
             } finally {
                 setIsLoading(false);
             }
         };
 
-        fetchVideoData();
+        fetchModuleData();
     }, [moduleId, moduleInfo]);
 
     const isCompleted = state.progresso?.licoesCompletasIds.includes(simuladorLicao?.id || -1) || false;
 
-    if (isLoading || !videoLicao || !modulo) {
+    const onStateChange = useCallback((state: string) => {
+        if (state === "ended") {
+            setPlaying(false);
+            showToast("Vídeo finalizado! Agora vamos praticar?", "success");
+        }
+    }, []);
+
+    if (isLoading) {
         return (
             <View style={styles.container}>
                 <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 50 }} />
@@ -83,49 +106,65 @@ export default function VideoExplanation({ state, navigateTo, moduleId, showToas
                     <CardHeader>
                         <CardTitle>
                             <Text style={state.largeText && styles.cardTitleLarge}>
-                                {/* Título vindo da API */}
-                                {videoLicao.titulo} 
+                                {modulo?.titulo || moduleInfo?.name || "Vídeo Explicativo"}
                             </Text>
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {/* Video Placeholder (sem alteração) */}
+                        {/* PLAYER DE VÍDEO */}
                         <View style={[
-                            styles.videoContainer,
+                            styles.videoWrapper,
                             state.highContrast && styles.videoContainerHighContrast,
                         ]}>
-                            <Play
-                                size={80}
-                                color={state.highContrast ? '#000' : '#ffffff'}
-                                opacity={0.8}
-                            />
-                            <View style={[
-                                styles.duration,
-                                state.highContrast && styles.durationHighContrast,
-                            ]}>
-                                {/* Duração mockada, pois não vem da API */}
-                                <Text style={styles.durationText}>5:30</Text>
-                            </View>
+                            {videoId ? (
+                                <YoutubePlayer
+                                    height={220}
+                                    play={playing}
+                                    videoId={videoId}
+                                    onChangeState={onStateChange}
+                                    initialPlayerParams={{
+                                        controls: true,
+                                        modestbranding: true,
+                                        rel: false
+                                    }}
+                                />
+                            ) : (
+                                <View style={styles.videoErrorContainer}>
+                                    <Text style={styles.videoErrorText}>
+                                        {currentVideoUrl 
+                                            ? "Erro ao carregar vídeo" 
+                                            : "Vídeo não cadastrado para este módulo"}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
 
-                        <Button
-                            onPress={() => showToast('Vídeo iniciado!', 'success')}
+                        {/* <Button
+                            onPress={() => {
+                                if (videoId) {
+                                    setPlaying(!playing);
+                                    if(!playing) showToast('Iniciando vídeo...', 'info');
+                                } else {
+                                    showToast('Vídeo indisponível', 'error');
+                                }
+                            }}
+                            disabled={!videoId}
                             style={
                                 state.highContrast
                                     ? { ...styles.playButton, ...styles.playButtonHighContrast }
-                                    : styles.playButton
+                                    : videoId ? styles.playButton : { ...styles.playButton, ...styles.disabled }
                             }
                         >
                             <View style={styles.playButtonContent}>
-                                <Play size={24} color="#ffffff" />
+                                <Play size={24} color="#ffffff" fill={playing ? "#ffffff" : "transparent"} />
                                 <Text style={[
                                     styles.playButtonText,
                                     state.largeText && styles.playButtonTextLarge,
                                 ]}>
-                                    Assistir Vídeo
+                                    {playing ? "Pausar Vídeo" : "Assistir Vídeo"}
                                 </Text>
                             </View>
-                        </Button>
+                        </Button> */}
 
                         <Card style={[
                             styles.descriptionCard,
@@ -142,8 +181,7 @@ export default function VideoExplanation({ state, navigateTo, moduleId, showToas
                                     styles.descriptionText,
                                     state.largeText && styles.descriptionTextLarge,
                                 ]}>
-                                    {/* Descrição vinda da API (do Módulo) */}
-                                    {modulo.descricao}
+                                    {modulo?.descricao || "Aprenda os conceitos fundamentais neste vídeo introdutório."}
                                 </Text>
                             </CardContent>
                         </Card>
@@ -211,38 +249,27 @@ const styles = StyleSheet.create({
     cardTitleLarge: {
         fontSize: 24,
     },
-    videoContainer: {
-        aspectRatio: 16 / 9,
-        backgroundColor: '#1f2937',
-        borderRadius: 12,
+    videoWrapper: {
+        overflow: 'hidden',
+        backgroundColor: '#fff',
+        marginBottom: 12,
+    },
+    videoErrorContainer: {
+        height: 200,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 24,
-        position: 'relative',
+        backgroundColor: '#dbeafe',
+        padding: 20,
+    },
+    videoErrorText: {
+        color: '#fff',
+        fontSize: 16,
+        textAlign: 'center',
     },
     videoContainerHighContrast: {
         backgroundColor: '#e5e7eb',
         borderWidth: 2,
         borderColor: '#000',
-    },
-    duration: {
-        position: 'absolute',
-        bottom: 16,
-        right: 16,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 4,
-    },
-    durationHighContrast: {
-        backgroundColor: '#ffffff',
-        borderWidth: 1,
-        borderColor: '#000',
-    },
-    durationText: {
-        color: '#ffffff',
-        fontSize: 14,
-        fontWeight: '600',
     },
     playButton: {
         backgroundColor: '#dc2626',
@@ -256,6 +283,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+        justifyContent: 'center'
     },
     playButtonText: {
         color: '#ffffff',
