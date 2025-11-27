@@ -99,35 +99,6 @@ export default function SettingsScreen({ state, navigateTo, toggleSetting, reset
                         </CardContent>
                     </Card>
 
-                    {/* Áudio Explicativo */}
-                    <Card style={[styles.card, state.highContrast && styles.cardHighContrast]}>
-                        <CardContent>
-                            <View style={styles.settingRow}>
-                                <View style={styles.settingInfo}>
-                                    <Volume2 size={state.largeText ? 32 : 24} color="#374151" />
-                                    <View style={styles.settingTextContainer}>
-                                        <Text style={[
-                                            styles.settingTitle,
-                                            state.largeText && styles.settingTitleLarge,
-                                        ]}>
-                                            Áudio Explicativo
-                                        </Text>
-                                        <Text style={[
-                                            styles.settingDescription,
-                                            state.largeText && styles.settingDescriptionLarge,
-                                        ]}>
-                                            Narração das instruções
-                                        </Text>
-                                    </View>
-                                </View>
-                                <Switch
-                                    checked={state.audioEnabled}
-                                    onCheckedChange={() => toggleSetting('audioEnabled')}
-                                />
-                            </View>
-                        </CardContent>
-                    </Card>
-
                     {/* Resetar Progresso */}
                     <Card style={[
                         styles.card,
