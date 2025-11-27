@@ -117,7 +117,9 @@ export default function MainMenu({ state, navigateTo }: ScreenProps) {
                                 >
                                     <Card style={[
                                         styles.card,
-                                        state.highContrast ? styles.cardHighContrast : { backgroundColor: visual.lightColor },
+                                        state.highContrast 
+                                            ? styles.cardHighContrast 
+                                            : { backgroundColor: visual.lightColor },
                                     ]}>
                                         <CardContent style={styles.cardContent}>
                                             <Icon
@@ -155,8 +157,9 @@ export default function MainMenu({ state, navigateTo }: ScreenProps) {
                     <Card style={[
                         styles.card,
                         state.highContrast ? styles.cardHighContrast : styles.progressCard,
+                        { height: undefined, minHeight: 120 } 
                     ]}>
-                        <CardContent style={styles.cardContent}>
+                        <CardContent style={[styles.cardContent, { flexDirection: 'row', gap: 20 }]}>
                             <TrendingUp
                                 size={state.largeText ? 64 : 48}
                                 color={state.highContrast ? '#000' : '#ec4899'}
@@ -164,6 +167,7 @@ export default function MainMenu({ state, navigateTo }: ScreenProps) {
                             <Text style={[
                                 styles.cardTitle,
                                 state.largeText && styles.cardTitleLarge,
+                                { marginTop: 0 }
                             ]}>
                                 Meu Progresso
                             </Text>
@@ -226,6 +230,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#111827',
         marginBottom: 16,
+        textAlign: 'center',
     },
     sectionTitleLarge: {
         fontSize: 24,
@@ -242,6 +247,7 @@ const styles = StyleSheet.create({
     },
     card: {
         marginBottom: 0,
+        height: 170,
     },
     cardHighContrast: {
         backgroundColor: '#ffffff',
@@ -253,7 +259,9 @@ const styles = StyleSheet.create({
     },
     cardContent: {
         alignItems: 'center',
-        padding: 24,
+        padding: 16,
+        flex: 1,
+        justifyContent: 'center',
     },
     cardTitle: {
         fontSize: 18,
