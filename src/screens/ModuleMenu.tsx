@@ -53,6 +53,7 @@ export default function ModuleMenu({ state, navigateTo, moduleId }: ModuleMenuPr
     }, [moduleId, moduleInfo]);
 
     const simuladorLicao = licoes.find(l => l.tipo === 'SIMULADOR');
+    const quizLicao = licoes.find(l => l.tipo === 'QUIZ');
 
     const isCompleted = state.progresso?.licoesCompletasIds.includes(simuladorLicao?.id || -1) || false;
 
@@ -136,32 +137,36 @@ export default function ModuleMenu({ state, navigateTo, moduleId }: ModuleMenuPr
 
                         {/* Quiz */}
                         <TouchableOpacity
-                            onPress={() => isCompleted && navigateTo(`quiz-${moduleId}`)}
-                            disabled={!isCompleted}
+                            onPress={() => 
+                                isCompleted && 
+                                quizLicao && 
+                                navigateTo('quiz', { licaoId: quizLicao.id, moduleId: moduleId })
+                            }
+                            disabled={!isCompleted || !quizLicao}
                         >
                             <Card style={[
                                 styles.card,
                                 state.highContrast ? styles.cardHighContrast : styles.cardYellow,
-                                !isCompleted && styles.cardDisabled, 
+                                (!isCompleted || !quizLicao) && styles.cardDisabled, 
                             ]}>
                                 <CardContent style={styles.cardContent}>
                                     <Award
                                         size={state.largeText ? 48 : 40}
                                         color={state.highContrast ? '#000' : '#eab308'}
-                                        opacity={!isCompleted ? 0.5 : 1}
+                                        opacity={(!isCompleted || !quizLicao) ? 0.5 : 1}
                                     />
                                     <View style={styles.cardText}>
                                         <Text style={[
                                             styles.cardTitle,
                                             state.largeText && styles.cardTitleLarge,
-                                            !isCompleted && styles.textDisabled,
+                                            (!isCompleted || !quizLicao) && styles.textDisabled,
                                         ]}>
                                             Quiz
                                         </Text>
                                         <Text style={[
                                             styles.cardDescription,
                                             state.largeText && styles.cardDescriptionLarge,
-                                            !isCompleted && styles.textDisabled,
+                                            (!isCompleted || !quizLicao) && styles.textDisabled,
                                         ]}>
                                             {isCompleted ? 'Teste seus conhecimentos' : '🔒 Complete o simulador primeiro'}
                                         </Text>
@@ -199,7 +204,7 @@ export default function ModuleMenu({ state, navigateTo, moduleId }: ModuleMenuPr
                             </Card>
                         </TouchableOpacity>
 
-                        {/* Dica*/}
+                        {/* Dica */}
                         <Card style={[
                             styles.tipCard,
                             state.highContrast && styles.cardHighContrast,

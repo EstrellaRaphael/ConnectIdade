@@ -1,11 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from './src/types';
 import { Toast } from './src/components/ui/Toast';
 import api from './src/services/api';
-import { useRef } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 // Import screens
 import MainMenu from './src/screens/MainMenu';
@@ -44,34 +42,39 @@ export default function App() {
       name: "Usuário de Teste"
     };
 
-    const response = await api.post('/api/usuarios/auth/login', {
-      googleId: googleUserData.id,
-      email: googleUserData.email,
-      nomeExibicao: googleUserData.name,
-    });
+    try {
+      const response = await api.post('/api/usuarios/auth/login', {
+        googleId: googleUserData.id,
+        email: googleUserData.email,
+        nomeExibicao: googleUserData.name,
+      });
 
-    const { token, usuario } = response.data;
+      const { token, usuario } = response.data;
 
-    await AsyncStorage.setItem('@app_token', token);
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      await AsyncStorage.setItem('@app_token', token);
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-    const progressoResponse = await api.get(`/api/progresso/usuario/${usuario.id}`);
-    const progresso = progressoResponse.data;
+      const progressoResponse = await api.get(`/api/progresso/usuario/${usuario.id}`);
+      const progresso = progressoResponse.data;
 
-    setState(prevState => ({
-      ...prevState,
-      usuario: usuario,
-      progresso: progresso,
-      token: token,
-      highContrast: usuario.configAltoContraste,
-      largeText: usuario.configTextoGrande,
-    }));
+      setState(prevState => ({
+        ...prevState,
+        usuario: usuario,
+        progresso: progresso,
+        token: token,
+        highContrast: usuario.configAltoContraste,
+        largeText: usuario.configTextoGrande,
+      }));
 
-    navigateTo('menu', {});
+      navigateTo('menu', {});
+    } catch (err) {
+      console.error("Erro no login", err);
+      showToast("Erro ao realizar login", "error");
+    }
   };
 
   const navigateTo = (screen: string, params: any) => {
-    setState(prev => ({ ...prev, currentScreen: screen, navParams: params }));
+    setState(prev => ({ ...prev, currentScreen: screen, navParams: params || {} }));
   };
 
   const completeModule = async (licaoId: number) => {
@@ -79,7 +82,6 @@ export default function App() {
 
     try {
       await api.post(`/api/progresso/usuario/${state.usuario.id}/completar-licao/${licaoId}`);
-
       const response = await api.get(`/api/progresso/usuario/${state.usuario.id}`);
 
       setState(prev => ({
@@ -88,7 +90,6 @@ export default function App() {
       }));
 
       showToast('Módulo completado e pontos ganhos!', 'success');
-
     } catch (err) {
       console.error("Erro ao completar módulo:", err);
       showToast('Erro ao salvar seu progresso.', 'error');
@@ -112,30 +113,26 @@ export default function App() {
       }));
 
       showToast(`Medalha conquistada: ${nomeMedalha}!`, 'success');
-
     } catch (err) {
       console.error("Erro ao adicionar medalha:", err);
       showToast('Erro ao salvar sua medalha.', 'error');
     }
   };
 
-
   const resetProgress = async () => {
     if (!state.usuario) return;
 
     try {
       await api.delete(`/api/progresso/usuario/${state.usuario.id}/resetar`);
-
       const response = await api.get(`/api/progresso/usuario/${state.usuario.id}`);
 
       setState(prev => ({
         ...prev,
         progresso: response.data,
+        currentScreen: 'menu'
       }));
 
       showToast('Todo o seu progresso foi resetado.', 'info');
-      navigateTo('menu', {});
-
     } catch (err) {
       console.error("Erro ao resetar progresso:", err);
       showToast('Erro ao resetar seu progresso.', 'error');
@@ -150,23 +147,17 @@ export default function App() {
   };
 
   const toggleSetting = (setting: 'highContrast' | 'largeText' | 'audioEnabled') => {
-
     setState(prev => {
-
       const newState = { ...prev, [setting]: !prev[setting] };
 
       if (setting === 'highContrast' || setting === 'largeText') {
-
         if (!newState.usuario) {
           console.warn("Usuário não logado, não é possível salvar configurações.");
           return newState;
         }
 
         const usuario = newState.usuario;
-
-        if (debounceTimer.current) {
-          clearTimeout(debounceTimer.current);
-        }
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
         debounceTimer.current = setTimeout(async () => {
           try {
@@ -174,17 +165,13 @@ export default function App() {
               configTextoGrande: newState.largeText,
               configAltoContraste: newState.highContrast,
             };
-
             await api.put(`/api/usuarios/${usuario.id}/configuracoes`, configDto);
-
           } catch (err) {
             console.error("Erro ao salvar configuração:", err);
-
             showToast('Não foi possível salvar sua preferência.', 'error');
           }
         }, 1000);
       }
-
       return newState;
     });
   };
@@ -253,14 +240,13 @@ export default function App() {
       
 
       // Quiz Module Unificado
-
       case 'quiz':
         return (
-            <QuizScreen 
-                {...screenProps} 
-                licaoId={state.navParams.licaoId} 
-                moduleId={state.navParams.moduleId} 
-            />
+          <QuizScreen 
+            {...screenProps} 
+            licaoId={state.navParams.licaoId} 
+            moduleId={state.navParams.moduleId} 
+          />
         );
 
       default:
