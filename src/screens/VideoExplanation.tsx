@@ -12,10 +12,10 @@ interface VideoExplanationProps extends ScreenProps {
     moduleId: string;
 }
 const MODULE_VIDEOS: Record<string, string> = {
-    'calls': 'https://youtu.be/qEHvmINXUfk',
-    'messages': 'https://youtu.be/L_7F5DABVYQ',
-    'security': 'https://youtu.be/RDrj9R582dM',
-    'camera': 'https://youtu.be/A1sQ2rtZcIg',
+    'calls': 'https://youtu.be/DrQLLUCm71o',
+    'messages': 'https://youtu.be/sLfR7T-6MKI',
+    'security': 'https://youtu.be/SdCGNGmTABU',
+    'camera': 'https://youtu.be/xna7GuTT05E',
 };
 const getYoutubeId = (url: string | undefined) => {
     if (!url) return null;

@@ -38,7 +38,7 @@ export default function SplashScreen({ state, navigateTo, handleLogin }: Props) 
                 state.largeText && styles.titleLarge,
                 state.highContrast && styles.textHighContrast,
             ]}>
-                Conexão Digital 60+
+                ConnectIdade
             </Text>
 
             <Text style={[

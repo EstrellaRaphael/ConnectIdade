@@ -492,6 +492,6 @@ const styles = StyleSheet.create({
         color: '#000',
     },
     actionHighlight: {
-        backgroundColor: '#fef3c7',
+        backgroundColor: '#acacacff',
     },
 });
